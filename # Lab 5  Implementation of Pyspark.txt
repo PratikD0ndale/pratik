@@ -1,0 +1,20 @@
+# Lab 5 : Implementation of Pyspark and SQL Session on Investment Dataset
+
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.appName("MyApp").getOrCreate()
+
+
+df = spark.read.csv("/content/sample_data/investments.csv", header=True, inferSchema=True)
+df.show()
+
+df.columns
+
+df.printSchema()
+
+df.createOrReplaceTempView('investment')
+
+spark.sql("select * from investment limit 10").show()
+
+
+spark.sql("SELECT * FROM investment WHERE country_code = 'USA'").show()
+

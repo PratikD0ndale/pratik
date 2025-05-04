@@ -1,0 +1,167 @@
+# Lab1 : Banking Telecommunication EDA
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+d = pd.read_csv('/content/sample_data/bank_marketing_updated_v1.csv')
+
+d.head()
+d = pd.read_csv('/content/sample_data/bank_marketing_updated_v1.csv')
+d.describe()
+
+d.columns = [
+    "customer_id", # Added commas here
+    "age",
+    "salary",
+    "balance",
+    "marital_status",
+    "job_education",
+    "targeted",
+    "default",
+    "housing",
+    "loan",
+    "content",
+    "day",
+    "month",
+    "duration",
+    "campaign",
+    "pdays",
+    "previous",
+    "poutcomes",
+    "response"
+]
+
+numeric_columns = ["customer_id", "age", "salary", "balance", "day", "duration", "campaign", "pdays", "previous"]
+d[numeric_columns] = d[numeric_columns].apply(pd.to_numeric, errors='coerce')
+
+d.info(), d.head()
+
+
+missing_values = d.isnull().sum()
+d = d.drop(columns=["duration"])
+
+d["age"].fillna(d["age"].median(), inplace=True)
+d["month"].fillna(d["month"].mode()[0], inplace=True)
+
+d=d.dropna(subset=["response"])
+
+d.isnull().sum()
+
+
+
+d[['month_name', 'year']] = d['month'].str.split(',', expand=True)
+d.drop(columns=['month'], inplace=True)
+
+d[['job', 'education']] = d['job_education'].str.split(',', expand=True)
+d.drop(columns=['job_education'], inplace=True)
+
+
+
+d.info()
+
+d.shape
+
+sns.set(style = "whitegrid")
+
+numeric_columns = ["age", "salary", "balance", "campaign", "pdays", "previous"]
+
+
+plt.figure(figsize=(15, 10))
+for i, column in enumerate(numeric_columns, 1):
+    plt.subplot(2, 3, i)
+    sns.histplot(d[column], kde=True)
+    plt.title(f'Distribution of {column}')
+plt.tight_layout()
+plt.show()
+
+
+categorical_columns = ["marital_status", "job", "education", "targeted", "default",]
+
+numeric_d = d.select_dtypes(include=["number"])
+
+corr_matrix = numeric_d.corr()
+
+plt.figure(figsize=(10, 8))
+sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", fmt=" .2f",linewidths=0.5)
+plt.title("Correlation Heatmap")
+plt.show()
+
+
+plt.hist(d['age'], bins = 20, edgecolor = 'black')
+plt.title('Histogram of Age')
+plt.xlabel('Age')
+plt.ylabel('Frequency')
+plt.show()
+
+sns.boxplot(y=d['salary'])
+plt.title('Boxplot of Salary')
+plt.show()
+
+print(d["salary"].describe())
+
+
+x_column = 'age'
+y_column = 'salary'
+
+plt.scatter(d[x_column], d[y_column])
+plt.xlabel(x_column)
+plt.ylabel(y_column)
+plt.title(f'Scatter Plot of {x_column} vs {y_column}')
+plt.show()
+
+correlation = d[[x_column, y_column]].corr()
+print(f"Correlation Matrix:")
+print( correlation)
+
+
+plt.pie(d['marital_status'].value_counts(), labels=d['marital_status'].unique(), autopct='%1.1f%%')
+plt.title('Marital Status Distribution')
+plt.show()
+
+
+for i, column in enumerate(numeric_columns, 1):
+    sns.boxplot(y=d['age'])
+    plt.title("Boxplot of Age")
+plt.show()
+
+
+
+for i, column in enumerate(numeric_columns, 1):
+    sns.boxplot(y=d['balance'], x=d['loan'])
+    plt.title("Boxplot of balance by loan")
+plt.show()
+
+
+grouped = d.groupby('marital_status')
+
+def detect_outliers_iqr(data, column):
+  Q1 = data[column].quantile(0.25)
+  Q3 = data[column].quantile(0.75)
+  IQR = Q3 - Q1
+  lower_bound = Q1 - 1.5 * IQR
+  upper_bound = Q3 + 1.5 * IQR
+  outliers = data[(data[column] < lower_bound) | (data[column] > upper_bound)]
+  return outliers
+
+outliers_by_group = grouped.apply(lambda group: detect_outliers_iqr(group, 'balance'))
+
+print(outliers_by_group)
+
+print(outliers_by_group)
+
+
+
+sns.pairplot(d[['age','salary', 'balance']], height=2, aspect=1.5)
+plt.show()
+
+
+plt.figure(figsize=(18,10))
+for i, column in enumerate(categorical_columns[:6],1):
+    plt.subplot(2, 3, i)
+    sns.countplot(data=d, x = column, palette= "viridis")
+    plt.title(f"Count Plot for {column}")
+    plt.xticks(rotation=90)
+plt.tight_layout()
+plt.show()

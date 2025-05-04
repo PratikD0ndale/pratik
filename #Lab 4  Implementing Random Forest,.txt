@@ -1,0 +1,173 @@
+#Lab 4 : Implementing Random Forest, Decision Tree, and K-means using MapReduce
+
+
+from pyspark.sql import SparkSession
+from pyspark.ml.stat import Correlation
+import pyspark.sql.functions as F
+
+spark = SparkSession.builder.getOrCreate()
+
+df = spark.read.csv("/content/sample_data/pima.csv", inferSchema=True,
+                   header=True)
+
+df.show()
+
+
+df.select("class").show()
+
+df.count()
+
+len(df.columns)
+
+df.printSchema()
+
+df.describe().show()
+
+df.head(5)
+
+df.groupBy('class').count().show()
+
+df.groupBy('age').count().show()
+
+df.groupBy('mass').count().show()
+
+from pyspark.ml.feature import VectorAssembler
+
+df.columns
+
+assembler= VectorAssembler(inputCols=['preg', 'plas', 'pres', 'skin', 'test', 'mass', 'pedi', 'age'],
+                           outputCol='features')
+assembler
+
+
+output= assembler.transform(df)
+output
+
+
+output.select('features','class').show(5)
+
+df.columns
+
+model_df=output.select(['features','class'])
+
+training_df,test_df=model_df.randomSplit([0.70,0.30])
+print(training_df.count())
+
+
+print(test_df.count())
+
+from pyspark.ml.classification import RandomForestClassifier
+
+rf_classifier=RandomForestClassifier(labelCol='class',numTrees=50).fit(training_df)
+
+
+# training results
+rf_predictions=rf_classifier.transform(test_df)
+rf_predictions.show()
+
+rf_predictions.groupBy('prediction').count().show()
+
+
+from pyspark.ml.evaluation import MulticlassClassificationEvaluator
+from pyspark.ml.evaluation import BinaryClassificationEvaluator
+
+
+rf_accuracy=MulticlassClassificationEvaluator(labelCol='class',
+                                              metricName='accuracy').evaluate(rf_predictions)
+print(rf_accuracy)
+
+
+#precision
+rf_precision=MulticlassClassificationEvaluator(labelCol='class',metricName='weightedPrecision').evaluate(rf_predictions)
+print(rf_precision)
+
+
+
+# AUC
+rf_auc=BinaryClassificationEvaluator(labelCol='class').evaluate(rf_predictions)
+print(rf_auc)
+
+
+# feature importance
+rf_classifier.featureImportances
+
+
+
+# Decision Tree
+
+from pyspark.sql import SparkSession
+from pyspark.ml.feature import VectorAssembler, StandardScaler
+from pyspark.ml.clustering import KMeans
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+
+# Step 1: Initialize Spark Session
+spark = SparkSession.builder.appName("KMeansClustering").getOrCreate()
+
+# Step 2: Load the dataset
+file_path = "/content/sample_data/Customer_Data.csv"  # Change this to your file path
+df = spark.read.csv(file_path, header=True, inferSchema=True)
+
+
+
+df.printSchema()  # Check schema to identify numeric columns
+features = ["purchases_frequency", "balance_frequency"]
+
+
+# Step 4: Assemble features into a single vector column
+from pyspark.sql.functions import col
+df = df.select([col(c).cast("double").alias(c) for c in features])
+
+
+# Assemble features
+assembler = VectorAssembler(inputCols=features, outputCol="features")
+assembled_data = assembler.transform(df)
+
+
+# Step 5: Standardize the data
+scaler = StandardScaler(inputCol="features", outputCol="scaledFeatures", withStd=True, withMean=False)
+scaler_model = scaler.fit(assembled_data)
+scaled_data = scaler_model.transform(assembled_data)
+
+
+# Step 6: Apply K-Means Clustering
+kmeans = KMeans(featuresCol="scaledFeatures", k=3)  # Choose k=3, adjust as needed
+model = kmeans.fit(scaled_data)
+clusters = model.transform(scaled_data)
+
+# Step 7: Show results
+clusters.select("purchases_frequency", "balance_frequency", "prediction").show(10)  # Replace with actual feature names
+
+
+
+# Step 8: Evaluate clustering performance (Inertia / Within Set Sum of Squared Errors - WSSSE)
+wssse = model.summary.trainingCost
+print(f"Within Set Sum of Squared Errors (WSSSE): {wssse}")
+
+
+
+# Convert PySpark DataFrame to Pandas
+clusters_pd = clusters.select("purchases_frequency", "balance_frequency", "prediction").toPandas()
+
+
+# Scatter plot
+plt.figure(figsize=(8, 6))
+sns.scatterplot(
+    x="purchases_frequency", y="balance_frequency", hue="prediction", palette="viridis", data=clusters_pd
+)
+centers = np.array(model.clusterCenters())
+
+# Scatter plot with corrected indexing
+plt.scatter(centers[:, 0], centers[:, 1], color='red', marker='X', s=200, label="Centroids")
+
+plt.title("K-Means Clustering Results")
+plt.xlabel("Feature1")  # Change to actual feature name
+plt.ylabel("Feature2")  # Change to actual feature name
+plt.legend()
+plt.show()
+
+
+# Stop Spark session
+spark.stop()
